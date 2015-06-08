@@ -9,7 +9,8 @@ output: html_document
 
 - ## Loading and preprocessing the data
 
-```{r, echo=TRUE, warning=FALSE, message=FALSE}
+
+```r
 library(dplyr)
 library(ggplot2)
 setwd("C:/Users/rruj/Downloads")
@@ -18,7 +19,8 @@ data <- read.csv("activity.csv")
 
 - ## What is mean total number of steps taken per day?
 
-```{r, echo=TRUE, fig.height=4, fig.width=8, warning=FALSE, message=FALSE, fig.align='center'}
+
+```r
 # Transforming the dataset to a desired format
 raw <- tbl_df(data)
 by_date <- group_by(raw, date)
@@ -30,16 +32,21 @@ g <- ggplot(steps_by_date, aes(x=steps))
 g <- g + geom_histogram(binwidth=2000, color="red")
 g <- g + labs(x="Sum of steps", title = "Distribution of steps")
 g
+```
 
+<img src="figure/unnamed-chunk-2-1.png" title="plot of chunk unnamed-chunk-2" alt="plot of chunk unnamed-chunk-2" style="display: block; margin: auto;" />
+
+```r
 mean_steps <- round(with(steps_by_date, mean(steps, na.rm=T)),2)
 median_steps <- with(steps_by_date, median(steps, na.rm=T))
 ```
 
-- *Mean Steps* : The mean steps taken each day is `r mean_steps`
+- *Mean Steps* : The mean steps taken each day is 1.076619 &times; 10<sup>4</sup>
 
-- *Median Steps* : The median steps taken each day is `r median_steps`
+- *Median Steps* : The median steps taken each day is 10765
 
-```{r, warning=FALSE, message=FALSE, fig.height=4, fig.width=8, fig.align='center'}
+
+```r
 #Plotting the time-series graph for 5-minute interval averaged across all days
 by_interval <- group_by(raw, interval)
 steps_by_interval <- summarize(by_interval, mean(steps, na.rm = TRUE))
@@ -55,10 +62,13 @@ g2 <- g2 + geom_text(aes(x=max_steps, label="Max steps interval", y=100), angle=
 g2
 ```
 
-- Maximum steps are taken on the interval `r max_steps`
+<img src="figure/unnamed-chunk-3-1.png" title="plot of chunk unnamed-chunk-3" alt="plot of chunk unnamed-chunk-3" style="display: block; margin: auto;" />
+
+- Maximum steps are taken on the interval 835
 
 - ## Are there differences in activity patterns between weekdays and weekends?
-```{r, warning=FALSE, message=FALSE, fig.height=4, fig.width=8, fig.align='center'}
+
+```r
 # Adding a column for weektime
 data$day <- with(data, weekdays(as.Date(date, format="%Y-%m-%d")))
 data$weektime <- with(data, as.factor(ifelse(day %in% c("Sunday","Saturday"),"Weekend","Weekday")))
@@ -75,12 +85,26 @@ g3 <- ggplot(avg_steps, aes(x=interval, y=Average.Steps))
 g3 <- g3 + geom_line()
 g3 <- g3 + facet_wrap( ~ weektime)
 g3
+```
 
+<img src="figure/unnamed-chunk-4-1.png" title="plot of chunk unnamed-chunk-4" alt="plot of chunk unnamed-chunk-4" style="display: block; margin: auto;" />
+
+```r
 # Mean of steps in weekdays
 mean(avg_steps$Average.Steps[avg_steps$weektime == "Weekday"], na.rm = T)
+```
 
+```
+## [1] 35.33796
+```
+
+```r
 # Mean of steps in weekends
 mean(avg_steps$Average.Steps[avg_steps$weektime == "Weekend"], na.rm = T)
+```
+
+```
+## [1] 43.07837
 ```
 
 ### *Conslusion : It can be clearly observed from the graphs and the averages that more steps are taken during the weekends (43.07 mean steps) than the weekdays (35.33 mean steps)*
