@@ -1,0 +1,86 @@
+---
+title: "Regression Models"
+author: "Ramaranjan Ruj"
+date: "June 16, 2015"
+output: pdf_document
+---
+
+Motor Trend, a magazine for the automative industry is interested in exploring the relationship between a set of variables and miles per gallon (mpg) as the outcome. They are interested in the following questions, 
+- "Is an automatic or manual transmission better for MPG"
+- "Quantify the MPG difference between automatic and manual transmissions"
+
+Given is a dataset named mtcars, the goal here is to develop a model with explains the relationship between the variables and mpg. We will build multiple regression models and select the one which has the best outcome.
+
+```{r, warning=FALSE, message=FALSE, results='hide'}
+# Loading the required libraries
+library(ggplot2)
+library(datasets)
+library(gridExtra)
+
+#Loading the dataset
+data(mtcars)
+
+#Converting the numeric variables to factors
+mtcars$cyl <- as.factor(mtcars$cyl)
+mtcars$vs <- as.factor(mtcars$vs)
+mtcars$am <- as.factor(mtcars$am)
+mtcars$gear <- as.factor(mtcars$gear)
+mtcars$carb <- as.factor(mtcars$carb)
+names(mtcars)[9] <- "Transmission"
+levels(mtcars$Transmission) <- c("Automatic","Manual")
+```
+
+```{r}
+#Regression Model-1 : mpg as outcome and 'am' as the variable
+fit_am <- lm(mpg ~ Transmission, data=mtcars)
+summary(fit_am)
+```
+
+- In this model, the transmission variable is significant as expected with a p-value of 0.000285. However, this model fails to explain the variance and explains only 33.8% of it. We now try to find a better model and include all variables.
+
+```{r}
+#Regression Model-2 : mpg as outcome with all input variables
+fit_all <- lm(mpg ~ ., data=mtcars)
+summary(fit_all)
+```
+
+- In this regression model, we include all variables. This model does explain the variance better (77.9%) but doesn't have any significant variable. We will try to change the model and find the significant variables with the backward selection technique.
+
+```{r, results='hide'}
+#Regression Model-3 : Backward selection to identify the significant variables
+fit_back <- step(fit_all, k=log(nrow(mtcars)))
+```
+
+```{r}
+summary(fit_back)
+```
+
+- With the backward technique, we have identified the variables wt, qsec and Transmission type as the significant variables. This model also explains most of the variance (83.3%). We will select this regression model for quantifying the mpg difference. 
+
+### "Is an automatic or manual transmission better for MPG"
+ - As per out third model, we expect a *improvement* in mpg with manual transmission. The boxplot also shows that the mean mpg for manual is better than the mean mpg for automatic transmission.
+ 
+### "Quantify the MPG difference between automatic and manual transmissions"
+ - While selecting the 3rd model, the difference in mpg for manual transmission and automatic transmission is 2.93 mpg ( Here the weight wt(lbs/1000) and qsec is kept constant).
+ 
+### Figures:
+
+```{r, fig.width=12}
+# Plot for the relation between mpg and Transmission
+g <- ggplot(mtcars, aes(x=Transmission, y=mpg))
+g <- g + geom_boxplot(aes(fill=Transmission))
+g <- g + labs(title = "Boxplot for mpg v/s Transmission")
+
+g2 <- ggplot(mtcars, aes(x=wt, y=mpg))
+g2 <- g2 + geom_point(aes(colour=cyl))
+g2 <- g2 + geom_smooth(method=lm, aes(colour=cyl))
+g2 <- g2 + labs(title="Plot of mpg v/s wt")
+
+grid.arrange(g, g2, ncol=2)
+```
+
+```{r, fig.width=12, fig.height=8}
+# Plot for for final selection model
+par(mfrow = c(2,2))
+plot(fit_back)
+```
