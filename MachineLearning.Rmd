@@ -1,0 +1,165 @@
+---
+title: "Predicting the quality of exercise through Machine Learning"
+author: "Ramaranjan Ruj"
+date: "July 26, 2015"
+output: html_document
+---
+
+# Synopsis
+
+In the era of the 21st century, applications of machine learning is omniscient. In this study we will discuss in this paper (http://groupware.les.inf.puc-rio.br/har). They investigated the use of computing to evaluate "proper" exercise form (possibly allowing computers to replace personal trainers to help us become better, faster, stronger.
+
+# Data
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement, a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, Machine learning algorithms and techniques will be used to make a model. We will also check if the model is able to predict the way exercises are being done. The success of this model also asserts the argument that trainers could be replaced by machines which can "correct" the exercising technique with more accuracy. 
+
+In the study referenced above, the data was obtained by attaching sensors (inertial measurement units) to both study participants, and weights, to measure the motion as exercises were performed. Each participant was instructed to perform an exercise five different ways (one "correct" way and differnt "incorrect" ways)
+
+```{r, warning=FALSE, message=FALSE}
+#loading the required packages
+
+library(caret)                  # For performing PCA
+library(caTools)                # For splitting the training data for cross validation
+library(randomForest)           # For performing randomForest
+library(rpart)                  # For performing regression and classification trees
+library(rpart.plot)             # For plotting the output of CART models
+library(e1071)                  # For "intelligently" performing cross-validations
+library(rattle)                 # Another library to make a visually aesthetic CART plots
+```
+
+-----------------------------------------------------------------------------------------
+
+Now that we are done with loading the libraries, lets download the data. It is observed that many observations are '#DIV/0'. We will set that as an argument to read as NA.
+
+### Downloading data
+
+```{r, warning=FALSE, message=FALSE}
+rm(list=ls())                           # removing existing files in the workspace
+setwd("C:/Users/rruj/Desktop")          # Setting the working directory
+
+
+#Downloading and reading the data
+trainURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+train <- read.csv(url(trainURL), header = T, na.strings = c("NA","#DIV/0!",""))
+
+testURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+test <- read.csv(url(testURL), header = T, na.strings = c("NA","#DIV/0!",""))
+
+dim(train)      # Checking the dimensions of the training set
+dim(test)       # Checking the dimensions of the testing set
+```
+
+Now after a quick check on the datasets, we see that many columns are just NA's. These columns will not help in building the prediction models. We will remove these columns from the dataset.
+------------------------------------------------------------------------------------------
+
+### Pre-Processing
+
+```{r, warning=FALSE, message=FALSE}
+NAcount <- apply(train, 2, function(x) sum(is.na(x)))   # Counts the number of NA's in each column
+train <- train[,!NAcount/nrow(train) >= 0.7]    # Selecting the columns
+
+test <- test[,names(test) %in% names(train)]
+train <- train[,-c(1:7)]
+test <- test[,-c(1:7)]
+
+dim(train)      # Checking the dimensions of the training set
+dim(test)       # Checking the dimensions of the testing set
+```
+
+We are down to just 53 columns from the initial 160 columns. Good going! Lets, split the training data into 2 parts. I'll choose the standard 70%-30% split. The library used here is caTools which is a wonderful library to split datasets while maintaining uniformity in the target column. 
+
+```{r, message=FALSE, warning=FALSE}
+set.seed(144)           # Setting seed to ensure the results are reproducible.
+split <- sample.split(train$classe, SplitRatio = 0.7)
+training <- train[split,]
+testing <- train[!split,]
+
+dim(training)   # Checking the dimensions of the training set
+dim(testing)    # Checking the dimensions of the testing set
+```
+
+------------------------------------------------------------------------------------------
+
+### CART Model
+
+Now that we are done with cleaning the data, lets jump into making a predciction model. We will try out the CART model from the rpart library. To start with, we will feed the model with default parameters.
+
+```{r, message = FALSE, warning = FALSE}
+CART <- rpart(classe ~ ., data = training, minbucket = 2000) # Creating the prediction model
+predictionsCART <- predict(CART, newdata = testing, type = "class") # Making predictions
+confusionMatrix(predictionsCART, testing$classe)
+
+```
+
+Not bad! We have a 42.7% accuracy rate of the out-of-sample data. Let's have a closer look on how our model looks like.
+
+```{r, warning=FALSE, message=FALSE, fig.width=12}
+fancyRpartPlot(CART)
+```
+
+-------------------------------------------------------------------------------------------
+
+### Tuned CART Model
+
+Pretty complicated eh!. Anyways, we want to make a model with better prediction capability, so we will compromise on the interpretibility. Let's try to tune the model. We will use the e1071 library to find the optimum vale of the cp parameter for the rpart model.
+
+```{r, warning=FALSE, message=FALSE}
+numFolds <- trainControl(method = "cv", number = 10)
+cpGrid <- expand.grid(.cp = seq(0.0001, 0.001, 0.0001))
+train(classe ~ ., data = training, method = "rpart", trControl = numFolds, tuneGrid = cpGrid)
+
+
+# It is clearly seen that the model has the highest accuracy with cp = 0.0002. We will set it as out cp value in the rpart model.
+tunedCART <- rpart(classe ~ ., data = training, method = "class", cp = 0.0002)
+predictionstunedCART <- predict(tunedCART, newdata = testing, type = "class")
+confusionMatrix(testing$classe, predictionstunedCART)
+
+```
+
+Bingo!. The Out-of-sample accuracy has moved tp 93%. We can play around with the parameters further, but lets check other machine learning algorithms if we can do better.
+I will now use randomForests to check the accuracy of the model.
+
+-------------------------------------------------------------------------------------------
+
+### Random Forest
+
+```{r, warning=FALSE, message=FALSE, fig.height=4, fig.width=10}
+#random forest
+set.seed(144)
+rf <- randomForest(classe ~ ., data = training, ntree = 500, nodesize = 1, importance = TRUE)
+
+predictRF <- predict(rf, newdata = testing)
+confusionMatrix(predictRF, testing$classe)
+plot(rf)
+```
+
+we see randomForest has done quite a good job in making the out of sample predictions with an accuracy of 99.6%. We observe that randomForest was able to make accurate predictions after 100 trees from the plot. Let's check how randomForest has interpreted the variables.
+
+```{r, warning=FALSE, message=FALSE}
+#plotting the variable importance plot
+varImpPlot(rf, n.var = 15)
+
+#plot for the count of variable used in the randomForest model (Top 10 variables)
+vu = varUsed(rf, count = TRUE)
+vusorted = sort(vu, decreasing = F, index.return = T)
+dotchart(vusorted$x[1:10], names(rf$forest$xlevels[vusorted$ix[1:10]]), main = "Variable used count", xlab = "Count")
+```
+
+Since randomForest gives us the maximum accuracy, we will use this model to make the predictions in the test dataset. The predictions are saved in separate files through the script below.
+------------------------------------------------------------------------------------------
+
+### Final Predictions
+
+```{r, warning=FALSE}
+Predictions <- predict(rf, newdata = test, type = "class")
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(Predictions)
+```
